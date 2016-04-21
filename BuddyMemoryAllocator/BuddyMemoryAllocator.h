@@ -15,13 +15,13 @@ namespace ZGE
         };
 
         // 1024 Byte Alloc Memory
-        static constexpr int MaxDepth = 10;
+        static constexpr int MaxDepth = 3;
 
         // 1024
         static constexpr unsigned int AllocSize = GetPowof2 (MaxDepth);
 
         // 4 Byte Per Unit, so it has 1024 / 4 = 256 Units
-        static constexpr unsigned int AllocUnit = 4;
+        static constexpr unsigned int AllocUnit = 1;
 
     public:
         typedef unsigned char Byte;

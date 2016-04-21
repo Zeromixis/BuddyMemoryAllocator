@@ -1,7 +1,7 @@
 #include <stack>
 
 #include <vcruntime_string.h>
-#include <xtgmath.h>
+#include <math.h>
 #include "BuddyMemoryAllocator.h"
 
 namespace ZGE
@@ -10,7 +10,7 @@ namespace ZGE
     {
         m_MemAlloc = new Byte [GetPowof2 (MaxDepth)];
         m_NodeTree = new NodeState [GetPowof2 (MaxDepth - GetExpof2 (AllocUnit) + 1)];
-        m_TreeLength = GetPowof2 (MaxDepth - GetExpof2 (AllocUnit) + 1);
+        m_TreeLength = GetPowof2 (MaxDepth - GetExpof2 (AllocUnit) + 1) - 1;
 
         MarkTree (0, NodeState::eNODE_UNUSE);
     }
@@ -97,9 +97,9 @@ namespace ZGE
         //             }
         //         };
 
-                // In this Depth, Search which node can be use
+        // In this Depth, Search which node can be use
         unsigned int beginIndex = (1 << searchDepth) - 1;
-        unsigned int endIndex = (1 << searchDepth + 1) - 2;
+        unsigned int endIndex = (1 << (searchDepth + 1)) - 2;
 
         unsigned int searchIndex = 0;
 
@@ -148,7 +148,7 @@ namespace ZGE
             }
         }
 
-        unsigned int unitSizeofThisDepth = allocSize / std::pow (2, searchDepth);
+        unsigned int unitSizeofThisDepth = (unsigned int)(GetPowof2 (MaxDepth) / std::pow (2, searchDepth));
         void *retAddr = m_MemAlloc;
         long retAddrValue = (long)retAddr;
         retAddrValue += (searchIndex - beginIndex) * unitSizeofThisDepth;
@@ -274,7 +274,7 @@ namespace ZGE
                     unsigned int parentIndex = GetParentNodeIndex (nodeIndex);
                     if (m_NodeTree [siblingNodeIndex] == NodeState::eNODE_UNUSE && m_NodeTree [parentIndex] == NodeState::eNODE_OCCUPIED_TO_CHILD)
                     {
-                        m_NodeTree [parentIndex] == NodeState::eNODE_UNUSE;
+                        m_NodeTree [parentIndex] = NodeState::eNODE_UNUSE;
                         nodeIndex = parentIndex;
                     }
                     else
@@ -297,6 +297,7 @@ namespace ZGE
         {
             MarkTree (GetLeftNodeIndex (rootIndex), nodeState);
             MarkTree (GetRightNodeIndex (rootIndex), nodeState);
+            m_NodeTree [rootIndex] = nodeState;
         }
     }
 }

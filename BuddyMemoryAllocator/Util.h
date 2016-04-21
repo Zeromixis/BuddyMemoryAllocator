@@ -26,7 +26,7 @@ namespace ZGE
         unsigned int exp = 0;
         while (true)
         {
-            if (1 << exp >= value)
+            if ((unsigned int)(1 << exp) >= value)
             {
                 return exp;
             }
@@ -52,9 +52,9 @@ namespace ZGE
         return (childIndex - 1) / 2;
     }
 
-    static constexpr bool IsLeaf (const unsigned int &childIndex, const unsigned int &MaxIndex)
+    static constexpr bool IsLeaf (const unsigned int &nodeIndex, const unsigned int &treeLength)
     {
-        return GetLeftNodeIndex (childIndex) > MaxIndex;
+        return GetLeftNodeIndex (nodeIndex) >= treeLength;
     }
 
     static constexpr bool IsLeftNode (const unsigned int &childIndex)
