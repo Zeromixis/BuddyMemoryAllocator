@@ -14,14 +14,15 @@ namespace ZGE
             eNODE_OCCUPIED_TO_PARENT,
         };
 
-        // 1024 Byte Alloc Memory
-        static constexpr int MaxDepth = 3;
+        static constexpr unsigned int AllocSizeExp = 3;
 
-        // 1024
-        static constexpr unsigned int AllocSize = GetPowof2 (MaxDepth);
+        static constexpr unsigned int AllocSize = GetPowof2 (AllocSizeExp);
 
-        // 4 Byte Per Unit, so it has 1024 / 4 = 256 Units
-        static constexpr unsigned int AllocUnit = 1;
+        static constexpr unsigned int AllocUnitExp = 0;
+
+        static constexpr unsigned int AllocUnit = GetPowof2 (AllocUnitExp);
+
+        static constexpr unsigned int TreeDepth = AllocSizeExp;
 
     public:
         typedef unsigned char Byte;

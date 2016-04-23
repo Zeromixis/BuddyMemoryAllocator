@@ -8,9 +8,9 @@ namespace ZGE
 {
     BuddyMemoryAllocator::BuddyMemoryAllocator ()
     {
-        m_MemAlloc = new Byte [GetPowof2 (MaxDepth)];
-        m_NodeTree = new NodeState [GetPowof2 (MaxDepth - GetExpof2 (AllocUnit) + 1)];
-        m_TreeLength = GetPowof2 (MaxDepth - GetExpof2 (AllocUnit) + 1) - 1;
+        m_MemAlloc = new Byte [GetPowof2 (AllocSizeExp)];
+        m_NodeTree = new NodeState [GetPowof2 (AllocSizeExp - GetExpof2 (AllocUnit) + 1)];
+        m_TreeLength = GetPowof2 (AllocSizeExp - GetExpof2 (AllocUnit) + 1) - 1;
 
         MarkTree (0, NodeState::eNODE_UNUSE);
     }
@@ -29,7 +29,7 @@ namespace ZGE
             return nullptr;
         }
 
-        if (GetPowof2 (MaxDepth) < allocSize)
+        if (GetPowof2 (AllocSizeExp) < allocSize)
         {
             // OVER LIMIT!
             assert (false);
@@ -39,63 +39,13 @@ namespace ZGE
         unsigned int searchDepth = 0;
         if (allocSize <= AllocUnit)
         {
-            searchDepth = MaxDepth;
+            searchDepth = AllocSizeExp;
         }
         else
         {
             unsigned int value = GetNextPowof2 (allocSize);
-            searchDepth = MaxDepth - value;
+            searchDepth = AllocSizeExp - value;
         }
-
-        //         auto GetAddrFromIndex = [ & ](unsigned int index) -> void *
-        //         {
-        //             void *beginAddr = m_MemAlloc;
-        //             void *endAddr = m_MemAlloc + allocSize;
-        //
-        //             if ( index == 0 )
-        //             {
-        //                 return beginAddr;
-        //             }
-        //             else
-        //             {
-        //                 // true mean left, false mean left
-        //                 std::stack<bool> nodePath;
-        //                 unsigned int t = index;
-        //                 while ( t != 0 )
-        //                 {
-        //                     if ( IsLeftNode ( t ) )
-        //                     {
-        //                         nodePath.push ( true );
-        //                     }
-        //                     else
-        //                     {
-        //                         nodePath.push ( false );
-        //                     }
-        //                     t = GetParentNodeIndex ( t );
-        //                 }
-        //
-        //
-        //                 while ( nodePath.empty () == false )
-        //                 {
-        //                     bool isLeft = nodePath.top ();
-        //                     unsigned long beginAddrValue = ( long )( beginAddr );
-        //                     unsigned long endAddrValue = ( long )( endAddr );
-        //                     unsigned long size = endAddrValue - beginAddrValue;
-        //
-        //                     if ( isLeft )
-        //                     {
-        //                         endAddr = ( void * )( endAddrValue - size / 2 );
-        //                     }
-        //                     else
-        //                     {
-        //                         beginAddr = ( void * )( beginAddrValue + size / 2 );
-        //                     }
-        //                     nodePath.pop ();
-        //                 }
-        //                 return beginAddr;
-        //
-        //             }
-        //         };
 
         // In this Depth, Search which node can be use
         unsigned int beginIndex = (1 << searchDepth) - 1;
@@ -148,7 +98,7 @@ namespace ZGE
             }
         }
 
-        unsigned int unitSizeofThisDepth = (unsigned int)(GetPowof2 (MaxDepth) / std::pow (2, searchDepth));
+        unsigned int unitSizeofThisDepth = (unsigned int)(GetPowof2 (AllocSizeExp) / std::pow (2, searchDepth));
         void *retAddr = m_MemAlloc;
         long retAddrValue = (long)retAddr;
         retAddrValue += (searchIndex - beginIndex) * unitSizeofThisDepth;
@@ -158,6 +108,11 @@ namespace ZGE
 
     void BuddyMemoryAllocator::Free (void *ptr)
     {
+        if (ptr == nullptr)
+        {
+            return;
+        }
+
         unsigned long freeMemPtrValue = (unsigned long)(ptr);
         unsigned long beginAddrValue = (unsigned long)(m_MemAlloc);
         unsigned long endAddrValue = (unsigned long)(m_MemAlloc + AllocSize);
@@ -174,49 +129,77 @@ namespace ZGE
             unsigned int beginSearchDepth = 0;
             unsigned int beginSearchIndex = 0;
 
-            auto tB = beginAddrValue;
-            auto tE = endAddrValue;
-            auto tF = freeMemPtrValue;
+            // The Following code used to find the search beginning level in the
+            // tree by the offset
 
-            while (true)
+            // At first the offset must be divided exactly to the AllocUnit
+            assert (offset % AllocUnit == 0);
+            
+            // Try to search up to find the highest Tree Level
+            unsigned int exp = 0;
+            unsigned int levelUnitSize = GetPowof2 (exp);
+            for (exp = AllocUnitExp; exp <= AllocSizeExp; ++exp)
             {
-                if (tB == tF)
+                levelUnitSize = GetPowof2 (exp);
+                if (offset % levelUnitSize == 0)
                 {
-                    break;
+
                 }
                 else
                 {
-                    if (tE - tB == AllocUnit)
-                    {
-                        if (tF != tB)
-                        {
-                            // This Ptr is not belongs to this Memory Area.
-                            // It points to the Mid Part of AllocUnit.
-                            assert (false);
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        ++beginSearchDepth;
-                        auto tMid = (tB + tE) / 2;
-                        if (tF < tMid)
-                        {
-                            // Go To Left Tree To search
-                            beginSearchIndex = GetLeftNodeIndex (beginSearchIndex);
-                            tE = tMid;
-                        }
-                        else
-                        {
-                            beginSearchIndex = GetRightNodeIndex (beginSearchIndex);
-                            tB = tMid;
-                        }
-                    }
+                    --exp;
+                    break;
                 }
             }
+
+            levelUnitSize = GetPowof2 (exp);
+            beginSearchDepth = TreeDepth - (exp - AllocUnitExp);
+            auto levelBeginIndex = GetPowof2 (beginSearchDepth) - 1;
+            beginSearchIndex = levelBeginIndex + offset / levelUnitSize;
+
+//             auto tB = beginAddrValue;
+//             auto tE = endAddrValue;
+//             auto tP = freeMemPtrValue;
+
+//             while (true)
+//             {
+//                 if (tB == tP)
+//                 {
+//                     break;
+//                 }
+//                 else
+//                 {
+//                     if (tE - tB == AllocUnit)
+//                     {
+//                         if (tP != tB)
+//                         {
+//                             // This Ptr is not belongs to this Memory Area.
+//                             // It points to the Mid Part of AllocUnit.
+//                             assert (false);
+//                         }
+//                         else
+//                         {
+//                             break;
+//                         }
+//                     }
+//                     else
+//                     {
+//                         ++beginSearchDepth;
+//                         auto tMid = (tB + tE) / 2;
+//                         if (tP < tMid)
+//                         {
+//                             // Go To Left Tree To search
+//                             beginSearchIndex = GetLeftNodeIndex (beginSearchIndex);
+//                             tE = tMid;
+//                         }
+//                         else
+//                         {
+//                             beginSearchIndex = GetRightNodeIndex (beginSearchIndex);
+//                             tB = tMid;
+//                         }
+//                     }
+//                 }
+//             }
 
             // Release
             if (IsLeaf (beginSearchIndex, m_TreeLength))
